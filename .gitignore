@@ -1,0 +1,113 @@
+############################
+# OS
+############################
+.DS_Store
+Thumbs.db
+
+############################
+# .NET / Visual Studio
+############################
+bin/
+obj/
+[Bb]uild/
+[Ll]og/
+[Ll]ogs/
+*.log
+*.tlog
+*.svclog
+*.user
+*.suo
+*.userosscache
+*.cache
+*.ilk
+*.pdb
+*.opendb
+*.VC.db
+
+# Solution/IDE
+.vs/
+*.code-workspace
+
+# Test results / coverage
+TestResult*/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+.coverage/
+.vstest/
+
+# Packages
+packages/
+*.nupkg
+*.snupkg
+*.nuspec
+.nuget/
+
+# Publish artifacts
+publish/
+_publish/
+artifacts/
+*.Publish.xml
+*.pubxml
+*.pubxml.user
+
+# Azure / IIS
+.csproj.user
+*.azurePubxml
+*.pubxml
+*.pubxml.user
+
+# Resharper / Rider
+_ReSharper*/
+*.DotSettings.user
+.idea/
+
+# Entity Framework (keep migrations you create!)
+# (Do NOT ignore the Migrations folder if you want it in git)
+
+############################
+# App settings / secrets
+############################
+# Keep appsettings.json, but DO NOT commit secrets. Use User Secrets.
+appsettings.*.local.json
+*.Secret.json
+
+# VS launch settings user file
+launchSettings.json.user
+
+############################
+# Visual Studio Code
+############################
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+############################
+# Node / Frontend (if present in monorepo)
+############################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+build/
+.cache/
+.next/
+out/
+.eslintcache
+*.tsbuildinfo
+
+############################
+# Misc
+############################
+*.tmp
+*.temp
+*.bak
+*.orig
+*.swp
+*.swo
