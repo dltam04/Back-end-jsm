@@ -14,9 +14,5 @@ public class MovieContext : DbContext
 
         // map to dbo.Movies explicitly
         b.Entity<Movie>().ToTable("Movies", "dbo");
-
-        // (optional but recommended when sharing a DB with other EF projects)
-        // keep a separate migrations history table to avoid collisions
-        // If you use this, also set it in Program.cs's UseSqlServer call.
     }
 }
