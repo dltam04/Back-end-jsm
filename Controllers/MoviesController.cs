@@ -1,34 +1,80 @@
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MovieApi.Data;
 using MovieApi.Models;
 
-[ApiController]
-[Route("api/movies")]
-public class MoviesController : ControllerBase
+namespace MovieApi.Controllers
 {
-    private readonly MovieContext _db;
-    public MoviesController(MovieContext db) => _db = db;
-
-    // GET /api/movies
-    [HttpGet]
-    public async Task<IActionResult> GetAll() =>
-        Ok(await _db.Movies.AsNoTracking().ToListAsync());
-
-    // GET /api/movies/5
-    [HttpGet("{id:int}")]
-    public async Task<IActionResult> GetOne(int id)
+    [ApiController]
+    [Route("api/[controller]")]
+    public class MoviesController : ControllerBase
     {
-        var movie = await _db.Movies.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id);
-        return movie is null ? NotFound() : Ok(movie);
-    }
+        private readonly MovieContext _db;
+        public MoviesController(MovieContext db) => _db = db;
 
-    // POST /api/movies
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] Movie movie)
-    {
-        _db.Movies.Add(movie);
-        await _db.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetOne), new { id = movie.Id }, movie);
+        // GET /api/movies
+        [HttpGet]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetAll()
+        {
+            var movies = await _db.Movies.AsNoTracking().ToListAsync();
+            return Ok(movies);
+        }
+
+        // GET /api/movies/{id}
+        [HttpGet("{id:int}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetOne(int id)
+        {
+            var movie = await _db.Movies.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id);
+            return movie is null ? NotFound(new { message = "Movie not found" }) : Ok(movie);
+        }
+
+        // POST /api/movies
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Create([FromBody] Movie movie)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            _db.Movies.Add(movie);
+            await _db.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetOne), new { id = movie.Id }, movie);
+        }
+
+        // PUT /api/movies/{id}
+        [HttpPut("{id:int}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Update(int id, [FromBody] Movie movie)
+        {
+            if (id != movie.Id)
+                return BadRequest(new { message = "Movie ID mismatch" });
+
+            var existing = await _db.Movies.FindAsync(id);
+            if (existing == null)
+                return NotFound(new { message = "Movie not found" });
+
+            _db.Entry(existing).CurrentValues.SetValues(movie);
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // DELETE /api/movies/{id}
+        [HttpDelete("{id:int}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var movie = await _db.Movies.FindAsync(id);
+            if (movie == null)
+                return NotFound(new { message = "Movie not found" });
+
+            _db.Movies.Remove(movie);
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
     }
 }
