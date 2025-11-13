@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
+using MovieApi.Services;
 using MovieApi.Models;
+using MovieApi.Data;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,6 +37,7 @@ builder.Services.AddAuthentication(options =>
 });
 // Authorization
 builder.Services.AddAuthorization();
+builder.Services.AddScoped<JwtService>();
 
 // 3. CORS
 builder.Services.AddCors(options =>
