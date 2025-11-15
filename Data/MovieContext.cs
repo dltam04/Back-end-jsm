@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MovieApi.Handlers;
 using MovieApi.Models;
 
 namespace MovieApi.Data;
@@ -8,14 +9,14 @@ public class MovieContext : DbContext
     public MovieContext(DbContextOptions<MovieContext> options) : base(options) { }
 
     public DbSet<Movie> Movies => Set<Movie>();
-    public DbSet<UserAccount> UserAccounts { get; set; } = null!;
+    public DbSet<UserAccount> UserAccounts => Set<UserAccount>();
 
-    protected override void OnModelCreating(ModelBuilder b)
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(b);
+        base.OnModelCreating(modelBuilder);
 
-        // map to dbo.Movies explicitly
-        b.Entity<Movie>().ToTable("Movies", "dbo");
-        b.Entity<UserAccount>().ToTable("UserAccounts", "dbo");
+        // Map to tables in SQL Server
+        modelBuilder.Entity<Movie>().ToTable("Movies", "dbo");
+        modelBuilder.Entity<UserAccount>().ToTable("UserAccounts", "dbo");
     }
 }
