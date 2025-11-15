@@ -1,15 +1,15 @@
-﻿using System;
+﻿using Microsoft.Extensions.Configuration;
 using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using MovieApi.Data;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using System.Threading.Tasks;
+using MovieApi.Models.Api;
 using MovieApi.Handlers;
 using MovieApi.Models;
-using MovieApi.Models.Api;
+using MovieApi.Data;
+using System.Text;
+using System;
 
 namespace MovieApi.Services
 {
@@ -24,37 +24,34 @@ namespace MovieApi.Services
             _configuration = configuration;
         }
 
-        // ==========================================
-        // AUTHENTICATE USER AND GENERATE JWT TOKEN
-        // ==========================================
+        // Authenticate user and Generate JWT Token
         public async Task<LoginResponseModel?> Authenticate(LoginRequestModel request)
         {
             if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 return null;
 
-            // ✅ Retrieve user from DB
+            // Retrieve user from DB
             var userAccount = await _movieContext.UserAccounts
                 .FirstOrDefaultAsync(x => x.UserName == request.Username);
 
             if (userAccount is null)
                 return null;
 
-            // ✅ Verify password using PBKDF2 handler
-            if (!PasswordHashHandler.VerifyPassword(request.Password, userAccount.Password!))
+            // Verify password
+            if (request.Password != userAccount.Password)
                 return null;
 
-            // ========================================
-            // JWT CONFIGURATION
-            // ========================================
+
+            // JWT Configuration
             var issuer = _configuration["JwtConfig:Issuer"];
             var audience = _configuration["JwtConfig:Audience"];
             var key = _configuration["JwtConfig:Key"];
-            var tokenValidityMins = _configuration.GetValue<int>("JwtConfig:TokenValidityMins");
+            var tokenValidityMins =
+                _configuration.GetValue<int?>("JwtConfig:TokenValidityMins") ?? 60;
+
             var tokenExpiryTimeStamp = DateTime.UtcNow.AddMinutes(tokenValidityMins);
 
-            // ========================================
-            // CLAIMS (add user info and roles)
-            // ========================================
+            // Claims (add user info and roles)
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, userAccount.Id.ToString()),
@@ -64,10 +61,8 @@ namespace MovieApi.Services
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) // unique token ID
             };
 
-            // ========================================
-            // TOKEN CREATION
-            // ========================================
-            var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
+            // Token Creation
+            var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key!));
             var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha512Signature);
 
             var tokenDescriptor = new SecurityTokenDescriptor
@@ -83,9 +78,7 @@ namespace MovieApi.Services
             var securityToken = tokenHandler.CreateToken(tokenDescriptor);
             var accessToken = tokenHandler.WriteToken(securityToken);
 
-            // ========================================
-            // RETURN RESPONSE
-            // ========================================
+            // Return response
             return new LoginResponseModel
             {
                 AccessToken = accessToken,
