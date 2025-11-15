@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Cryptography.KeyDerivation;
-using System;
 using System.Security.Cryptography;
+using System;
 
 namespace MovieApi.Handlers
 {
@@ -9,9 +9,7 @@ namespace MovieApi.Handlers
         private static readonly int _iterationCount = 100000;
         private static readonly RandomNumberGenerator _randomNumberGenerator = RandomNumberGenerator.Create();
 
-        // ============================
-        // HASH PASSWORD
-        // ============================
+        // Hash Password
         public static string HashPassword(string password)
         {
             // 1. Generate a salt
@@ -40,9 +38,7 @@ namespace MovieApi.Handlers
             return Convert.ToBase64String(outputBytes);
         }
 
-        // ============================
-        // VERIFY PASSWORD
-        // ============================
+        // Verify Password
         public static bool VerifyPassword(string password, string hashedPassword)
         {
             try
@@ -88,9 +84,7 @@ namespace MovieApi.Handlers
             }
         }
 
-        // ============================
-        // UTILITY HELPERS
-        // ============================
+        // Utility Helpers
         private static void WriteNetworkByteOrder(byte[] buffer, int offset, uint value)
         {
             buffer[offset + 0] = (byte)(value >> 24);
