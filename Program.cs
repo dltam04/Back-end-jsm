@@ -1,19 +1,50 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.EntityFrameworkCore;
-using MovieApi.Services;
-using MovieApi.Models;
-using MovieApi.Data;
 using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using MovieApi.Data;
+using MovieApi.Models;
+using MovieApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Controllers, Swagger and Authentication
+// Controllers, Swagger and Authentication
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "MovieApi",
+        Version = "v1"
+    });
 
-// 2. Configure JWT Authentication
+    var jwtSecurityScheme = new OpenApiSecurityScheme
+    {
+        BearerFormat = "JWT",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = JwtBearerDefaults.AuthenticationScheme,
+        Description = "Enter JWT token",
+        Reference = new OpenApiReference
+        {
+            Id = JwtBearerDefaults.AuthenticationScheme,
+            Type = ReferenceType.SecurityScheme
+        }
+    };
+
+    options.AddSecurityDefinition("Bearer", jwtSecurityScheme);
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        { jwtSecurityScheme, Array.Empty<string>() }
+    });
+});
+
+
+// Configure JWT Authentication
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -35,11 +66,12 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true
     };
 });
+
 // Authorization
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<JwtService>();
 
-// 3. CORS
+// CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -48,14 +80,22 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod());
 });
 
-// 4. EF Core (SQL Server)
+// EF Core (SQL Server)
 builder.Services.AddDbContext<MovieContext>(options =>
     options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
+        builder.Configuration.GetConnectionString("DefaultConnection")!,
         sql => sql.MigrationsHistoryTable("__EFMigrationsHistory_MovieApi")));
 
-// 5. Build and configure the app
+Console.WriteLine("Connection String = " + builder.Configuration.GetConnectionString("DefaultConnection"));
+
+// Build and configure the app
 var app = builder.Build();
+
+var controllerTypes = typeof(Program).Assembly
+    .GetTypes()
+    .Where(t => typeof(ControllerBase).IsAssignableFrom(t))
+    .Select(t => t.FullName);
+
 
 // Swagger only in Development
 if (app.Environment.IsDevelopment())
@@ -66,7 +106,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseCors("AllowAll"); // CORS before Authentication
+// CORS before Authentication
+app.UseCors("AllowAll");
 
 // Authentication and Authorization
 app.UseAuthentication();
