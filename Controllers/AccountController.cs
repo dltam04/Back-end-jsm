@@ -1,8 +1,8 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using MovieApi.Services;
 using MovieApi.Models.Api;
-using Microsoft.AspNetCore.Authorization;
+using MovieApi.Services;
 
 namespace MovieApi.Controllers
 {
@@ -15,13 +15,13 @@ namespace MovieApi.Controllers
 
         [AllowAnonymous]
         [HttpPost("Login")]
-        public async Task<ActionResult<LoginResponseModel>> Login(LoginRequestModel request)
+        public async Task<ActionResult<LoginResponseModel>> Login([FromBody] LoginRequestModel request)
         {
             var result = await _jwtService.Authenticate(request);
             if (result is null)
                 return NotFound();
 
-            return result;
+            return Ok(result);
         }
     }
 }
