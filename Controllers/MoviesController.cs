@@ -1,9 +1,9 @@
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using MovieApi.Data;
+using Microsoft.AspNetCore.Mvc;
+using System.Threading.Tasks;
 using MovieApi.Models;
+using MovieApi.Data;
 
 namespace MovieApi.Controllers
 {
