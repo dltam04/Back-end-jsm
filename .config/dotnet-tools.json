@@ -1,13 +1,19 @@
 {
-  "version": 1,
-  "isRoot": true,
-  "tools": {
-    "dotnet-ef": {
-      "version": "6.0.35",
-      "commands": [
-        "dotnet-ef"
-      ],
-      "rollForward": false
+    // schema version: tells .NET SDK which structure to expect
+    "version": 1,
+
+    // root tool manifest for the project - highest one (can't be override if exist many of these) 
+    // (maybe not like the manifest in mobile app)
+    "isRoot": true,
+    
+    // locally installed tools (ef-core remains the only one for now)
+    "tools": {
+        "dotnet-ef": {
+            "version": "6.0.35", // version
+            "commands": [
+                "dotnet-ef" // command to run (CRUD)
+            ],
+            "rollForward": false // tells the project to ONLY RUN 6.0.35
+        }
     }
-  }
 }
