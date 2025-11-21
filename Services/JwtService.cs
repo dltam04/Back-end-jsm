@@ -38,7 +38,7 @@ namespace MovieApi.Services
                 return null;
 
             // Verify password
-            if (request.Password != userAccount.Password)
+            if (!PasswordHashHandler.VerifyPassword(request.Password, userAccount.Password))
                 return null;
 
 
@@ -83,7 +83,7 @@ namespace MovieApi.Services
             {
                 AccessToken = accessToken,
                 Username = userAccount.UserName!,
-                Role = userAccount.Role ?? "User",
+                Id = userAccount.Id,
                 ExpiresIn = (int)(tokenExpiryTimeStamp - DateTime.UtcNow).TotalSeconds
             };
         }
