@@ -1,4 +1,19 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿/* Authorization to know which APIs can be used 
+    -> Bearer box only working as place to fill in the accessToken
+    true work only show when you receive the status from call each api
+    - 200: Ok
+    - 201: created
+    - 204: no content
+    - 400: bad request
+    - 401: unauthorized
+    - 403: forbiden
+    - 404: not found
+    - 409: conflict
+    - 500: internal server error
+*/
+
+
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MovieApi.Models.Api;
@@ -23,7 +38,7 @@ namespace MovieApi.Controllers
         private readonly JwtService _jwtService;
         public AccountController(JwtService jwtService) => _jwtService = jwtService;
 
-        [AllowAnonymous] // Key for authorize (User or Admin can access)
+        [AllowAnonymous] // Key for authorize (User/Admin can access)
         [HttpPost("Login")]
         public async Task<ActionResult<LoginResponseModel>> Login([FromBody] LoginRequestModel request)
         {
