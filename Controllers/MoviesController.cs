@@ -1,41 +1,175 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
-using MovieApi.Models;
+using Microsoft.EntityFrameworkCore;
 using MovieApi.Data;
+using MovieApi.Models;
 
 namespace MovieApi.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api")]
     public class MoviesController : ControllerBase
     {
         private readonly MovieContext _db;
-        public MoviesController(MovieContext db) => _db = db;
+        private const int PageSize = 20;
 
-        // GET /api/movies
-        [HttpGet]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetAll()
+        public MoviesController(MovieContext db)
         {
-            var movies = await _db.Movies.AsNoTracking().ToListAsync();
-            return Ok(movies);
+            _db = db;
+        }
+
+        // GET /api/movies?category=&genreId=&search=&page=
+        [HttpGet("movies")]
+        [AllowAnonymous]
+        public async Task<ActionResult<object>> Browse(
+            [FromQuery] string? category,
+            [FromQuery] int? genreId,
+            [FromQuery] string? search,
+            [FromQuery] int page = 1)
+        {
+            if (page < 1) page = 1;
+
+            var query = _db.Movies
+                .AsNoTracking()
+                .AsQueryable();
+
+            // 1. search text
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(m =>
+                    m.Title.Contains(search) ||
+                    (m.Overview ?? "").Contains(search));
+            }
+
+            // 2. optional filter by genre
+            if (genreId.HasValue)
+            {
+                query =
+                    from m in query
+                    join mg in _db.MovieGenres.AsNoTracking()
+                        on m.MovieId equals mg.MovieId
+                    where mg.GenreId == genreId.Value
+                    select m;
+            }
+
+            // 3. category = how to order / filter
+            switch (category)
+            {
+                case "top_rated":
+                    query = query.OrderByDescending(m => m.VoteAverage);
+                    break;
+
+                case "upcoming":
+                    query = query
+                        .Where(m => m.ReleaseDate >= DateTime.UtcNow.Date)
+                        .OrderBy(m => m.ReleaseDate);
+                    break;
+
+                // null, "popular", anything else
+                default:
+                    query = query.OrderByDescending(m => m.Popularity);
+                    break;
+            }
+
+            // remove dupes that might come from the genre JOIN
+            query = query.Distinct();
+
+            var totalResults = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalResults / (double)PageSize);
+
+            var results = await query
+                .Skip((page - 1) * PageSize)
+                .Take(PageSize)
+                .Select(m => new
+                {
+                    id = m.MovieId,
+                    title = m.Title,
+                    overview = m.Overview,
+                    poster_path = m.PosterPath,
+                    backdrop_path = m.BackdropPath,
+                    vote_average = m.VoteAverage,
+                    vote_count = m.VoteCount,
+                    release_date = m.ReleaseDate
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                page,
+                results,
+                total_results = totalResults,
+                total_pages = totalPages
+            });
         }
 
         // GET /api/movies/{id}
-        [HttpGet("{id:int}")]
+        [HttpGet("movies/{id:int}")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetOne(int id)
+        public async Task<ActionResult<object>> Get(int id)
         {
-            var movie = await _db.Movies.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id);
-            return movie is null ? NotFound(new { message = "Movie not found" }) : Ok(movie);
+            var movie = await _db.Movies
+                .Include(m => m.MovieGenres).ThenInclude(mg => mg.Genre)
+                .Include(m => m.Videos)
+                .Include(m => m.Cast).ThenInclude(c => c.Person)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.MovieId == id);
+
+            if (movie == null)
+                return NotFound(new { message = "Movie not found" });
+
+            var genres = movie.MovieGenres
+                .Select(mg => new { id = mg.GenreId, name = mg.Genre.Name })
+                .ToList();
+
+            var credits = new
+            {
+                cast = movie.Cast
+                    .OrderBy(c => c.CastOrder)
+                    .Select(c => new
+                    {
+                        id = c.PersonId,
+                        name = c.Person.Name,
+                        character = c.Character,
+                        profile_path = c.Person.ProfilePath
+                    })
+                    .ToList()
+            };
+
+            var videos = new
+            {
+                results = movie.Videos
+                    .Select(v => new
+                    {
+                        key = v.Key,
+                        site = v.Site,
+                        type = v.Type,
+                        name = v.Name
+                    })
+                    .ToList()
+            };
+
+            return Ok(new
+            {
+                id = movie.MovieId,
+                title = movie.Title,
+                genres,
+                overview = movie.Overview,
+                poster_path = movie.PosterPath,
+                backdrop_path = movie.BackdropPath,
+                vote_average = movie.VoteAverage,
+                vote_count = movie.VoteCount,
+                runtime = movie.Runtime,
+                release_date = movie.ReleaseDate,
+                original_language = movie.OriginalLanguage,
+                credits,
+                videos
+            });
         }
 
-        // POST /api/movies
-        [HttpPost]
+        // POST /api/admin/movies
+        [HttpPost("admin/movies")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Create([FromBody] Movie movie)
+        public async Task<ActionResult<Movie>> Create([FromBody] Movie movie)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -43,15 +177,16 @@ namespace MovieApi.Controllers
             _db.Movies.Add(movie);
             await _db.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetOne), new { id = movie.Id }, movie);
+            // point to the PUBLIC Get action
+            return CreatedAtAction(nameof(Get), new { id = movie.MovieId }, movie);
         }
 
-        // PUT /api/movies/{id}
-        [HttpPut("{id:int}")]
+        // PUT /api/admin/movies/{id}
+        [HttpPut("admin/movies/{id:int}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(int id, [FromBody] Movie movie)
         {
-            if (id != movie.Id)
+            if (id != movie.MovieId)
                 return BadRequest(new { message = "Movie ID mismatch" });
 
             var existing = await _db.Movies.FindAsync(id);
@@ -63,8 +198,8 @@ namespace MovieApi.Controllers
             return NoContent();
         }
 
-        // DELETE /api/movies/{id}
-        [HttpDelete("{id:int}")]
+        // DELETE /api/admin/movies/{id}
+        [HttpDelete("admin/movies/{id:int}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
