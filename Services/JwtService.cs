@@ -6,7 +6,6 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using MovieApi.Models.Api;
 using MovieApi.Handlers;
-using MovieApi.Models;
 using MovieApi.Data;
 using System.Text;
 using System;
@@ -27,20 +26,26 @@ namespace MovieApi.Services
         // Authenticate user and Generate JWT Token
         public async Task<LoginResponseModel?> Authenticate(LoginRequestModel request)
         {
-            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+            var username = request.Username?.Trim();
+            var password = request.Password;
+
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
                 return null;
 
             // Retrieve user from DB
             var userAccount = await _movieContext.UserAccounts
-                .FirstOrDefaultAsync(x => x.UserName == request.Username);
+                .FirstOrDefaultAsync(x => x.UserName == username);
 
             if (userAccount is null)
                 return null;
 
             // Verify password
-            if (!PasswordHashHandler.VerifyPassword(request.Password, userAccount.Password))
+            if (!PasswordHashHandler.VerifyPassword(password, userAccount.Password))
                 return null;
 
+            // ✅ Block login until email is verified
+            if (!userAccount.IsEmailVerified)
+                return null;
 
             // JWT Configuration
             var issuer = _configuration["JwtConfig:Issuer"];
@@ -58,7 +63,7 @@ namespace MovieApi.Services
                 new Claim(JwtRegisteredClaimNames.UniqueName, userAccount.UserName!),
                 new Claim(ClaimTypes.Name, userAccount.UserName!),
                 new Claim(ClaimTypes.Role, userAccount.Role ?? "User"),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) // unique token ID
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
             // Token Creation
