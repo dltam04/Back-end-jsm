@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
 using MovieApi.Services;
-using MovieApi.Models;
 using MovieApi.Data;
 using System.Text;
 
@@ -43,8 +42,12 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// JWT Authentication
+var jwtSection = builder.Configuration.GetSection("JwtConfig");
+var signingKey = new SymmetricSecurityKey(
+    Encoding.UTF8.GetBytes(jwtSection["Key"]!)
+);
 
-// Configure JWT Authentication
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -53,21 +56,29 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = false;
+    options.RequireHttpsMetadata = false; // ok for localhost
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidIssuer = builder.Configuration["JwtConfig:Issuer"],
-        ValidAudience = builder.Configuration["JwtConfig:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JwtConfig:Key"]!)),
+        // this must match what JwtService uses
+        ValidIssuer = jwtSection["Issuer"],
+        ValidAudience = jwtSection["Audience"],
+        IssuerSigningKey = signingKey,
+
         ValidateIssuer = true,
         ValidateAudience = true,
         ValidateLifetime = true,
-        ValidateIssuerSigningKey = true
+        ValidateIssuerSigningKey = true,
+
+        // make lifetime strict (no 5-minute grace)
+        ClockSkew = TimeSpan.Zero,
+
+        // ensure role-based auth uses ClaimTypes.Role
+        RoleClaimType = System.Security.Claims.ClaimTypes.Role
     };
 });
 
-// Authorization
+// Authorization + JwtService
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<JwtService>();
 
@@ -88,21 +99,23 @@ builder.Services.AddDbContext<MovieContext>(options =>
 
 Console.WriteLine("Connection String = " + builder.Configuration.GetConnectionString("DefaultConnection"));
 
-// Build and configure the app
+// TMDb and Sync service
+builder.Services.AddHttpClient("tmdb");
+builder.Services.AddScoped<TMDbSyncService>();
+
+builder.Services.AddScoped<EmailService>();
+
 var app = builder.Build();
 
-var controllerTypes = typeof(Program).Assembly
-    .GetTypes()
-    .Where(t => typeof(ControllerBase).IsAssignableFrom(t))
-    .Select(t => t.FullName);
-
-
 // Swagger only in Development
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+//if (app.Environment.IsDevelopment())
+//{
+//    app.UseSwagger();
+//    app.UseSwaggerUI();
+//}
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
