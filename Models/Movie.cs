@@ -3,7 +3,7 @@ using System;
 namespace MovieApi.Models;
 public class Movie
 {
-    // NEW semantics: MovieId is MovieLens id
+    // MovieId is MovieLens id
     public int MovieId { get; set; } // TMDb movie id
 
     // Keep TMDb id separately
