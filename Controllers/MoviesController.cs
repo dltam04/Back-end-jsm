@@ -17,7 +17,7 @@ namespace MovieApi.Controllers
         {
             _db = db;
         }
-
+        
         // GET /api/movies?category=&genreId=&search=&page=
         [HttpGet("movies")]
         [AllowAnonymous]
@@ -61,7 +61,7 @@ namespace MovieApi.Controllers
 
                 case "upcoming":
                     query = query
-                        .Where(m => m.ReleaseDate >= DateTime.UtcNow.Date)
+                        .Where(m => m.ReleaseDate.HasValue && m.ReleaseDate.Value >= DateTime.UtcNow.Date)
                         .OrderBy(m => m.ReleaseDate);
                     break;
 
@@ -83,6 +83,7 @@ namespace MovieApi.Controllers
                 .Select(m => new
                 {
                     id = m.MovieId,
+                    tmdb_id = m.TmdbId,
                     title = m.Title,
                     overview = m.Overview,
                     poster_path = m.PosterPath,
@@ -105,7 +106,7 @@ namespace MovieApi.Controllers
         // GET /api/movies/{id}
         [HttpGet("movies/{id:int}")]
         [AllowAnonymous]
-        public async Task<ActionResult<object>> Get(int id)
+        public async Task<ActionResult<object>> Get(int id, CancellationToken ct)
         {
             var movie = await _db.Movies
                 .Include(m => m.MovieGenres).ThenInclude(mg => mg.Genre)
@@ -116,6 +117,18 @@ namespace MovieApi.Controllers
 
             if (movie == null)
                 return NotFound(new { message = "Movie not found" });
+
+            // ---- IMDb id from dbo.Links (MovieLens mapping) ----
+            var link = await _db.Links
+                .AsNoTracking()
+                .FirstOrDefaultAsync(l => l.MovieId == id, ct);
+
+            // MovieLens imdbId is numeric -> IMDb uses "tt" + zero padding (7 digits)
+            string? imdb_id = null;
+            if (link?.ImdbId != null)
+            {
+                imdb_id = "tt" + link.ImdbId.Value.ToString().PadLeft(7, '0');
+            }
 
             var genres = movie.MovieGenres
                 .Select(mg => new { id = mg.GenreId, name = mg.Genre.Name })
@@ -151,6 +164,8 @@ namespace MovieApi.Controllers
             return Ok(new
             {
                 id = movie.MovieId,
+                tmdb_id = movie.TmdbId,
+                imdb_id,
                 title = movie.Title,
                 genres,
                 overview = movie.Overview,
