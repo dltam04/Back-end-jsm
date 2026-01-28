@@ -98,9 +98,17 @@ builder.Services.AddDbContext<MovieContext>(options =>
         sql => sql.MigrationsHistoryTable("__EFMigrationsHistory_MovieApi")));
 
 Console.WriteLine("Connection String = " + builder.Configuration.GetConnectionString("DefaultConnection"));
+Console.WriteLine("TMDb ApiKey exists? " + (!string.IsNullOrWhiteSpace(builder.Configuration["TMDb:ApiKey"])));
 
 // TMDb and Sync service
 builder.Services.AddHttpClient("tmdb");
+
+// (Render can be slow/cold-start -> increase timeout)
+builder.Services.AddHttpClient("ModelApi", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
 builder.Services.AddScoped<TMDbSyncService>();
 
 builder.Services.AddScoped<EmailService>();
@@ -118,6 +126,8 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
+
+app.UseRouting();
 
 // CORS before Authentication
 app.UseCors("AllowAll");
