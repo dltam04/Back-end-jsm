@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
@@ -97,9 +98,6 @@ builder.Services.AddDbContext<MovieContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection")!,
         sql => sql.MigrationsHistoryTable("__EFMigrationsHistory_MovieApi")));
 
-Console.WriteLine("Connection String = " + builder.Configuration.GetConnectionString("DefaultConnection"));
-Console.WriteLine("TMDb ApiKey exists? " + (!string.IsNullOrWhiteSpace(builder.Configuration["TMDb:ApiKey"])));
-
 // TMDb and Sync service
 builder.Services.AddHttpClient("tmdb");
 
@@ -113,7 +111,16 @@ builder.Services.AddScoped<TMDbSyncService>();
 
 builder.Services.AddScoped<EmailService>();
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 // Swagger only in Development
 //if (app.Environment.IsDevelopment())
